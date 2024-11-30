@@ -1,0 +1,15 @@
+{
+  "name": "calendar-from-text-file",
+  "version": "1.0.0",
+  "description": "I wanna write a simple script that converts calendar events written in a `.md` file into an `.ics` file.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "date-fns": "^4.1.0"
+  }
+}
