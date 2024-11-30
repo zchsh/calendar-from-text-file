@@ -1,0 +1,68 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:adamgibbons/ics
+METHOD:PUBLISH
+X-PUBLISHED-TTL:PT1H
+BEGIN:VEVENT
+UID:vNzTQc1QNI7xAXUr5hEeV
+SUMMARY:All-day event
+DTSTAMP:20241130T005934Z
+DTSTART;VALUE=DATE:20241101
+DTEND;VALUE=DATE:20241102
+DESCRIPTION:This is an all-day event on November 1st. Everything before the
+	 first full stop should become the event title. Everything after the event
+	 title should become the event description.
+END:VEVENT
+BEGIN:VEVENT
+UID:6oW2TXkp7bYT4HRoSw9Jj
+SUMMARY:Default duration event
+DTSTAMP:20241130T005934Z
+DTSTART:20241103T140000Z
+DTEND:20241103T150000Z
+DESCRIPTION:When a start time is specified\, but no end time\, events shoul
+	d take on a default duration. One hour seems reasonable\, it's one unit or
+	 whatever. Maybe default duration is configurable through an input option 
+	when running the script.
+END:VEVENT
+BEGIN:VEVENT
+UID:aSBmxUBhWggMTC4G2oX-4
+SUMMARY:Default duration event
+DTSTAMP:20241130T005934Z
+DTSTART:20241104T140000Z
+DTEND:20241104T150000Z
+DESCRIPTION:When a start time is specified\, but no end time\, events shoul
+	d take on a default duration. One hour seems reasonable\, it's one unit or
+	 whatever. Maybe default duration is configurable through an input option 
+	when running the script.
+END:VEVENT
+BEGIN:VEVENT
+UID:L5rwuTifnp4-fOCZaANuu
+SUMMARY:Start and end event
+DTSTAMP:20241130T005934Z
+DTSTART:20241105T190000Z
+DTEND:20241105T210000Z
+DESCRIPTION:Note that I like writing times in 24-hour format. 12 hour vs 24
+	 hour is probably worth making a configurable option at some point too... 
+	but for now\, I think I'll stick with 24 hour.
+END:VEVENT
+BEGIN:VEVENT
+UID:j2tiUA9MPqwDhzcswxCRY
+SUMMARY:December event
+DTSTAMP:20241130T005934Z
+DTSTART;VALUE=DATE:20241219
+DTEND;VALUE=DATE:20241220
+DESCRIPTION:Note that the headings will be ignored completely. All the comp
+	uter needs to look for is list items that start with `YYYY-MM-DD`. Heading
+	s and other decoration are for human use\, our script can ignore them.
+END:VEVENT
+BEGIN:VEVENT
+UID:X2YEmXbL08NrzN8rnbk2E
+SUMMARY:Winter break
+DTSTAMP:20241130T005934Z
+DTSTART;VALUE=DATE:20241221
+DTEND;VALUE=DATE:20250106
+DESCRIPTION:Multi-day event that should render across all the specified day
+	s.
+END:VEVENT
+END:VCALENDAR

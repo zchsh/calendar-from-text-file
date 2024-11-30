@@ -1,14 +1,41 @@
 import fs from "fs";
-import { addDays, addHours, format, parse } from "date-fns";
+import { addDays, addHours, format } from "date-fns";
+import ics from "ics";
 import path from "path";
 
-const CALENDAR_FILE = path.join(process.cwd(), "fixtures/markdown-calendar.md");
-const OUTPUT_FILE = path.join(process.cwd(), "calendar-from-markdown.ics";
+const [_, __, ...args] = process.argv;
+
+const [CALENDAR_FILE, OUTPUT_FILE] = args;
 
 main(CALENDAR_FILE, OUTPUT_FILE);
 
-
 async function main(calendarFile, outputFile) {
+	// Log what we'll be doing
+	console.log(`🗓️ Converting "${calendarFile}" to "${outputFile}"...`);
+	// Parse calendar events from the input file
+	const parsedEvents = parseCalendarFile(calendarFile);
+	// Format to ics
+	const { error: icsError, value: icsString } = ics.createEvents(
+		parsedEvents.map((entry) => {
+			return {
+				start: entry.start,
+				end: entry.end,
+				title: entry.title,
+				description: entry.description,
+			};
+		})
+	);
+	// If we had an error, throw it
+	if (icsError) {
+		throw new Error(`Error creating ICS file: ${icsError}`);
+	}
+	// Write out the ics file
+	fs.writeFileSync(outputFile, icsString);
+	// Log that we're done
+	console.log(`✅ Done!`);
+}
+
+function parseCalendarFile(calendarFile) {
 	// Read in the `Calendar.md` file from Obsidian, using fs.readFileSync
 	const calendar = fs.readFileSync(calendarFile, "utf8");
 	// Split the file into lines
@@ -17,17 +44,8 @@ async function main(calendarFile, outputFile) {
 	const validLines = lines.filter((line) => line.match(/^- \d{4}-\d{2}-\d{2}/));
 	// Trim the prefix `- ` from each valid line
 	const trimmedLines = validLines.map((line) => line.slice(2));
-	/**
-	 * Parse the start date-time and end date-time from the line, using a regex.
-	 *
-	 * We expect the format:
-	 * `- <startDate> to <endDate> - <title>. <...description>`
-	 *
-	 * Note that the ` to <endDate>` part is not always present.
-	 */
-	// Log the valid lines to the console
-	// For each valid line, parse the date-time and title
-	const parsedLines = trimmedLines.map((line) => {
+	// For each valid line, parse the start, end, title, and description
+	const parsedEvents = trimmedLines.map((line) => {
 		const [datePart, ...restParts] = line.split(" - ");
 		// Parse the title and description
 		const [title, ...descriptionParts] = restParts.join(" - ").split(". ");
@@ -54,12 +72,8 @@ async function main(calendarFile, outputFile) {
 			description,
 		};
 	});
-  // TODO: remove this, just debugging for now
-	for (const entry of parsedLines) {
-		console.log(entry);
-	}
-  // TODO: Format to ical. Pretty sure there's a package for this.
-  // TODO: write out the calendar
+	// Return the parsed events
+	return parsedEvents;
 }
 
 /**
