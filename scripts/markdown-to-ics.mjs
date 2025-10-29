@@ -1,7 +1,8 @@
 import fs from "fs";
 import { addDays, addHours, format } from "date-fns";
+import { parseLocation } from "./parse-location.mjs";
+import { shimAppleStructuredLocation } from "./shim-apple-structured-location.mjs";
 import ics from "ics";
-import path from "path";
 
 const [_, __, ...args] = process.argv;
 
@@ -13,7 +14,7 @@ async function main(calendarFile, outputFile) {
 	// Log what we'll be doing
 	console.log(`🗓️ Converting "${calendarFile}" to "${outputFile}"...`);
 	// Parse calendar events from the input file
-	const parsedEvents = parseCalendarFile(calendarFile);
+	const parsedEvents = await parseCalendarFile(calendarFile);
 	// Format to ics
 	const { error: icsError, value: icsString } = ics.createEvents(
 		parsedEvents.map((entry) => {
@@ -22,20 +23,28 @@ async function main(calendarFile, outputFile) {
 				end: entry.end,
 				title: entry.title,
 				description: entry.description,
+				geo: entry.geo,
+				location: entry.location,
 			};
 		})
 	);
 	// If we had an error, throw it
 	if (icsError) {
-		throw new Error(`Error creating ICS file: ${icsError}`);
+		throw new Error(`Error creating ICS file: ${JSON.stringify(icsError)}`);
 	}
+	/**
+	 * Hack to get `X-APPLE-STRUCTURED-LOCATION` data into place,
+	 * because Apple Calendar ignores the standard GEO property,
+	 * and doesn't automatically look up the standard LOCATION property.
+	 */
+	const icsStringWithAppleBullshit = shimAppleStructuredLocation(icsString);
 	// Write out the ics file
-	fs.writeFileSync(outputFile, icsString);
+	fs.writeFileSync(outputFile, icsStringWithAppleBullshit);
 	// Log that we're done
 	console.log(`✅ Done!`);
 }
 
-function parseCalendarFile(calendarFile) {
+async function parseCalendarFile(calendarFile) {
 	// Read in the `Calendar.md` file from Obsidian, using fs.readFileSync
 	const calendar = fs.readFileSync(calendarFile, "utf8");
 	// Split the file into lines
@@ -45,35 +54,71 @@ function parseCalendarFile(calendarFile) {
 	// Trim the prefix `- ` from each valid line
 	const trimmedLines = validLines.map((line) => line.slice(2));
 	// For each valid line, parse the start, end, title, and description
-	const parsedEvents = trimmedLines.map((line) => {
-		const [datePart, ...restParts] = line.split(" - ");
-		// Parse the title and description
-		const [title, ...descriptionParts] = restParts.join(" - ").split(". ");
-		const description = descriptionParts.join(". ");
-		// Parse the start and end times
-		const [startString, ...endStringParts] = datePart.split(" to ");
-		const endString = endStringParts.join(" to ");
-		// Parse the start and end event arrays
-		const parsedStart = parseDateTimeString(startString);
-		const parsedEnd = parseDateTimeString(endString);
-		const { start, end, type } = parseEventStartEnd(parsedStart, parsedEnd);
-		// Return the formatted object
-		return {
-			line,
-			// datePart,
-			// startString,
-			// parsedStart,
-			// endString,
-			// parsedEnd,
-			// type,
-			start,
-			end,
-			title,
-			description,
-		};
-	});
+	const parsedEvents = [];
+	for (const line of trimmedLines) {
+		parsedEvents.push(await parseCalendarFileLine(line));
+	}
 	// Return the parsed events
 	return parsedEvents;
+}
+
+async function parseCalendarFileLine(line) {
+	const [datePart, ...restParts] = line.split(" - ");
+	// Parse the title and description
+	const [title, ...descriptionParts] = restParts.join(" - ").split(". ");
+	const description = descriptionParts.join(". ");
+	// Parse the start and end times
+	const [startString, ...endStringParts] = datePart.split(" to ");
+	const endString = endStringParts.join(" to ");
+	// Parse the start and end event arrays
+	const parsedStart = parseDateTimeString(startString);
+	const parsedEnd = parseDateTimeString(endString);
+	const { start, end } = parseEventStartEnd(parsedStart, parsedEnd);
+	// Attempt to parse a latitude and longitude from the description
+	const { lat, lon, locationLabel } = parseLocation(description);
+	/**
+	 * Attempt to parse a location label from the description
+	 *
+	 * NOTE: Apple Calendar REQUIRES a location property, otherwise it
+	 * won't even display its own custom X-APPLE-STRUCTURED-LOCATION data.
+	 * So, we add a fallback location if `lat` and `lon` are specified.
+	 */
+	const hasGeo = Boolean(lat && lon && !isNaN(lat) && !isNaN(lon));
+	const hasLocation = typeof locationLabel === "string" && locationLabel !== "";
+	/**
+	 * TODO: if we have a location but no geo, could be neat to search the
+	 * location on nomatim.org to see if we can get geo.
+	 *
+	 * API DOCS:
+	 * https://nominatim.org/release-docs/develop/api/Search/
+	 *
+	 * EXAMPLE:
+	 * https://nominatim.openstreetmap.org/search?q=Artisan+Bakery,+London,+Ontario&format=jsonv2
+	 *
+	 * Could cache the results in local text files, since I always run this
+	 * update script from my computer anyways.
+	 */
+	const geo = hasGeo ? { lat, lon } : undefined;
+	const location = hasLocation
+		? locationLabel
+		: hasGeo
+		? "Event location"
+		: undefined;
+	// Return the formatted object
+	return {
+		line,
+		// datePart,
+		// startString,
+		// parsedStart,
+		// endString,
+		// parsedEnd,
+		geo,
+		location,
+		start,
+		end,
+		title,
+		description,
+	};
 }
 
 /**
@@ -111,7 +156,7 @@ function parseEventStartEnd(
 		return {
 			start: [...startDate, ...startTime],
 			end: [...endDate, ...endTime],
-			type: "both-days-both-times",
+			// type: "both-days-both-times",
 		};
 	}
 
@@ -126,7 +171,7 @@ function parseEventStartEnd(
 		return {
 			start: [...startDate, ...startTime],
 			end: [...endDate, 23, 59],
-			type: "both-days-start-time",
+			// type: "both-days-start-time",
 		};
 	}
 
@@ -140,7 +185,7 @@ function parseEventStartEnd(
 		return {
 			start: [...startDate, 0, 0],
 			end: [...endDate, ...endTime],
-			type: "both-days-end-time",
+			// type: "both-days-end-time",
 		};
 	}
 
@@ -160,7 +205,7 @@ function parseEventStartEnd(
 		return {
 			start: dateToArray(startDateObj),
 			end: dateToArray(endDateObj),
-			type: "both-days-no-times",
+			// type: "both-days-no-times",
 		};
 	}
 
@@ -177,7 +222,7 @@ function parseEventStartEnd(
 		return {
 			start: [...startDate, ...startTime],
 			end: [...startDate, ...endTime],
-			type: "start-day-both-times",
+			// type: "start-day-both-times",
 		};
 	}
 
@@ -199,7 +244,7 @@ function parseEventStartEnd(
 		return {
 			start: [...startDate, ...startTime],
 			end: dateTimeToArray(endDateObj),
-			type: "start-day-start-time",
+			// type: "start-day-start-time",
 		};
 	}
 
@@ -222,7 +267,7 @@ function parseEventStartEnd(
 		return {
 			start: dateTimeToArray(startDateObj),
 			end: dateTimeToArray(endDateObj),
-			type: "start-day-end-time",
+			// type: "start-day-end-time",
 		};
 	}
 
@@ -238,7 +283,7 @@ function parseEventStartEnd(
 		return {
 			start: dateToArray(startDateObj),
 			end: dateToArray(endDateObj),
-			type: "start-day-no-times",
+			// type: "start-day-no-times",
 		};
 	}
 
