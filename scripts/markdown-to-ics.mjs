@@ -74,36 +74,8 @@ async function parseCalendarFileLine(line) {
 	const parsedStart = parseDateTimeString(startString);
 	const parsedEnd = parseDateTimeString(endString);
 	const { start, end } = parseEventStartEnd(parsedStart, parsedEnd);
-	// Attempt to parse a latitude and longitude from the description
-	const { lat, lon, locationLabel } = parseLocation(description);
-	/**
-	 * Attempt to parse a location label from the description
-	 *
-	 * NOTE: Apple Calendar REQUIRES a location property, otherwise it
-	 * won't even display its own custom X-APPLE-STRUCTURED-LOCATION data.
-	 * So, we add a fallback location if `lat` and `lon` are specified.
-	 */
-	const hasGeo = Boolean(lat && lon && !isNaN(lat) && !isNaN(lon));
-	const hasLocation = typeof locationLabel === "string" && locationLabel !== "";
-	/**
-	 * TODO: if we have a location but no geo, could be neat to search the
-	 * location on nomatim.org to see if we can get geo.
-	 *
-	 * API DOCS:
-	 * https://nominatim.org/release-docs/develop/api/Search/
-	 *
-	 * EXAMPLE:
-	 * https://nominatim.openstreetmap.org/search?q=Artisan+Bakery,+London,+Ontario&format=jsonv2
-	 *
-	 * Could cache the results in local text files, since I always run this
-	 * update script from my computer anyways.
-	 */
-	const geo = hasGeo ? { lat, lon } : undefined;
-	const location = hasLocation
-		? locationLabel
-		: hasGeo
-		? "Event location"
-		: undefined;
+	// Attempt to parse a location from the description
+	const { geo, location } = await parseLocation(description);
 	// Return the formatted object
 	return {
 		line,
