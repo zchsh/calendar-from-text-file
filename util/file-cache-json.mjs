@@ -1,8 +1,11 @@
 import fs from "fs";
-import path from "path";
+import { fileURLToPath } from "url";
+import path, { dirname } from "path";
 
-const CWD = process.cwd();
-const CACHE_DIR = path.join(CWD, "cache");
+// const CWD = process.cwd();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const CACHE_DIR = path.join(__dirname, "..", "cache");
 
 // Ensure the cache directory exists
 if (!fs.existsSync(CACHE_DIR)) {

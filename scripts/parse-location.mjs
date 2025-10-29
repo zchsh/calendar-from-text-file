@@ -25,23 +25,25 @@ export async function parseLocation(descriptionString) {
 	let geoInferred = null;
 	if (hasLocation && !hasGeoAuthored) {
 		/**
-		 * TODO: if we have a location but no geo, could be neat to search the
+		 * If we have a location but no geo, could be neat to search the
 		 * location on nomatim.org to see if we can get geo.
+		 *
+		 * Note that we cache the results in local .json files, and we
+		 * strictly limit API calls to a maximum of 1 per second.
 		 *
 		 * API DOCS:
 		 * https://nominatim.org/release-docs/develop/api/Search/
 		 *
 		 * EXAMPLE:
 		 * https://nominatim.openstreetmap.org/search?q=Artisan+Bakery,+London,+Ontario&format=jsonv2
-		 *
-		 * Could cache the results in local text files, since I always run this
-		 * update script from my computer anyways.
 		 */
 		const searchResult = await nomatimSearch(locationLabel);
 		if (searchResult.length > 0) {
 			console.log(
-				`🗺️ Search for ${locationLabel} yielded ${searchResult[0].display_name}.`
+				`🗺️ Search for ${locationLabel} yielded:\n  ${searchResult[0].display_name}.`
 			);
+			const { lat: latString, lon: lonString } = searchResult[0];
+			geoInferred = { lat: parseFloat(latString), lon: parseFloat(lonString) };
 		} else {
 			console.log(`❓ Search for ${locationLabel} did not yield results.`);
 		}
@@ -63,7 +65,6 @@ export async function parseLocation(descriptionString) {
 		: typeof geo !== "undefined"
 		? "Event location"
 		: undefined;
-
 	// Return the parsed geo and location
 	return { geo, location };
 }
