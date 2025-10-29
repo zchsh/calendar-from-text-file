@@ -39,13 +39,8 @@ export async function parseLocation(descriptionString) {
 		 */
 		const searchResult = await nomatimSearch(locationLabel);
 		if (searchResult.length > 0) {
-			console.log(
-				`🗺️ Search for ${locationLabel} yielded:\n  ${searchResult[0].display_name}.`
-			);
 			const { lat: latString, lon: lonString } = searchResult[0];
 			geoInferred = { lat: parseFloat(latString), lon: parseFloat(lonString) };
-		} else {
-			console.log(`❓ Search for ${locationLabel} did not yield results.`);
 		}
 	}
 	const hasGeoInferred = isValidGeo(geoInferred);

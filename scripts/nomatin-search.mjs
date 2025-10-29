@@ -15,7 +15,17 @@ async function nomatimSearchFetch(queryString) {
 	const response = await fetch(queryUrl, {
 		headers: { "User-Agent": "zchsh" },
 	});
-	return await response.json();
+	const result = await response.json();
+	// Log out that we've done a new search
+	if (result.length > 0) {
+		console.log(`🗺️ Nominatim search for ${queryString} yielded:`);
+		console.log(`  ${result[0].display_name}.`);
+	} else {
+		console.log(
+			`❓ Nominatim search for ${queryString} did not yield results.`
+		);
+	}
+	return result;
 }
 
 const nomatimSearchThrottled = throttlePromise(nomatimSearchFetch, 1000);
