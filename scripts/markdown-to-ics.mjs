@@ -1,6 +1,7 @@
 import fs from "fs";
 import { addDays, addHours, format } from "date-fns";
 import { parseLocation } from "./parse-location.mjs";
+import { parseMetadata } from "./parse-metadata.mjs";
 import { shimAppleStructuredLocation } from "./shim-apple-structured-location.mjs";
 import ics from "ics";
 
@@ -16,18 +17,7 @@ async function main(calendarFile, outputFile) {
 	// Parse calendar events from the input file
 	const parsedEvents = await parseCalendarFile(calendarFile);
 	// Format to ics
-	const { error: icsError, value: icsString } = ics.createEvents(
-		parsedEvents.map((entry) => {
-			return {
-				start: entry.start,
-				end: entry.end,
-				title: entry.title,
-				description: entry.description,
-				geo: entry.geo,
-				location: entry.location,
-			};
-		})
-	);
+	const { error: icsError, value: icsString } = ics.createEvents(parsedEvents);
 	// If we had an error, throw it
 	if (icsError) {
 		throw new Error(`Error creating ICS file: ${JSON.stringify(icsError)}`);
@@ -65,8 +55,8 @@ async function parseCalendarFile(calendarFile) {
 async function parseCalendarFileLine(line) {
 	const [datePart, ...restParts] = line.split(" - ");
 	// Parse the title and description
-	const [title, ...descriptionParts] = restParts.join(" - ").split(". ");
-	const description = descriptionParts.join(". ");
+	const [title, ...eventDataStringParts] = restParts.join(" - ").split(". ");
+	const eventDataString = eventDataStringParts.join(". ");
 	// Parse the start and end times
 	const [startString, ...endStringParts] = datePart.split(" to ");
 	const endString = endStringParts.join(" to ");
@@ -75,15 +65,17 @@ async function parseCalendarFileLine(line) {
 	const parsedEnd = parseDateTimeString(endString);
 	const { start, end } = parseEventStartEnd(parsedStart, parsedEnd);
 	// Attempt to parse a location from the description
-	const { geo, location } = await parseLocation(description);
+	const { geo, location } = await parseLocation(eventDataString);
+	const { url, description } = parseMetadata(eventDataString);
 	// Return the formatted object
 	return {
-		line,
+		// line,
 		// datePart,
 		// startString,
 		// parsedStart,
 		// endString,
 		// parsedEnd,
+		url,
 		geo,
 		location,
 		start,

@@ -1,7 +1,9 @@
+import { getRegexMatch } from "../util/get-regex-match.mjs";
 import { parseLatLon } from "./parse-lat-lon.mjs";
 import { nomatimSearch } from "./nomatin-search.mjs";
 
-const LOC_REGEX = /Location is ([^.]*)./;
+const LOC_REGEX = /Location is ([^.]*)\.?/;
+const LOC_LABEL_REGEX = /Location label is ([^.]*)\.?/;
 const GEO_REGEX = /Geo is ([-\d\.]+):([-\d\.]+)./;
 
 /**
@@ -14,18 +16,21 @@ export async function parseLocation(descriptionString) {
 	// Attempt to parse latitude and longitude from the description
 	const geoAuthored = parseLatLon(descriptionString, GEO_REGEX);
 	// Attempt to parse a location label from the description
-	const locationLabel = parseLocationLabel(descriptionString, LOC_REGEX);
+	const locationString = getRegexMatch(descriptionString, LOC_REGEX);
+	const hasLocationString = typeof locationString === "string";
+	const locationLabel = getRegexMatch(descriptionString, LOC_LABEL_REGEX);
+	const hasLocationLabel = typeof locationLabel === "string";
 	// Keep track of which of geo and location we have
 	const hasGeoAuthored = isValidGeo(geoAuthored);
-	const hasLocation = typeof locationLabel === "string" && locationLabel !== "";
+
 	/**
 	 * If we have a location but no manually authored GEO lat & lon,
 	 * search OpenStreetMaps data using nomatim.org to try to find lat & lon
 	 */
 	let geoInferred = null;
-	if (hasLocation && !hasGeoAuthored) {
+	if (hasLocationString && !hasGeoAuthored) {
 		/**
-		 * If we have a location but no geo, could be neat to search the
+		 * If we have a location but no geo, we search the
 		 * location on nomatim.org to see if we can get geo.
 		 *
 		 * Note that we cache the results in local .json files, and we
@@ -37,7 +42,7 @@ export async function parseLocation(descriptionString) {
 		 * EXAMPLE:
 		 * https://nominatim.openstreetmap.org/search?q=Artisan+Bakery,+London,+Ontario&format=jsonv2
 		 */
-		const searchResult = await nomatimSearch(locationLabel);
+		const searchResult = await nomatimSearch(locationString);
 		if (searchResult.length > 0) {
 			const { lat: latString, lon: lonString } = searchResult[0];
 			geoInferred = { lat: parseFloat(latString), lon: parseFloat(lonString) };
@@ -55,8 +60,10 @@ export async function parseLocation(descriptionString) {
 	 * won't even display its own custom X-APPLE-STRUCTURED-LOCATION data.
 	 * So, we add a fallback location if `lat` and `lon` are specified.
 	 */
-	const location = hasLocation
+	const location = hasLocationLabel
 		? locationLabel
+		: hasLocationString
+		? locationString
 		: typeof geo !== "undefined"
 		? "Event location"
 		: undefined;
@@ -76,20 +83,4 @@ function isValidGeo(latLonObj) {
 	}
 	const { lat, lon } = latLonObj;
 	return Boolean(lat && lon && !isNaN(lat) && !isNaN(lon));
-}
-
-/**
- * TODO: write description
- *
- * @param {*} inputString
- * @param {*} labelRegex
- * @returns
- */
-function parseLocationLabel(inputString, labelRegex) {
-	const labelMatch = inputString.match(labelRegex);
-	if (!labelMatch) {
-		return null;
-	}
-	const [_labelMatchFull, labelString] = labelMatch;
-	return labelString;
 }
